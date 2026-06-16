@@ -1,0 +1,76 @@
+# syntax=docker/dockerfile:1
+# OmniDSP CI image: rust-ci + Intel oneMKL & IPP (devel, dynamic-linked).
+# INTERNAL visibility — it bundles Intel libraries; do not publish publicly.
+FROM ghcr.io/twowells/rust-ci:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Intel oneAPI apt repo → oneMKL + IPP devel (signal/math; dynamic link surface).
+RUN apt-get update && apt-get install -y --no-install-recommends gnupg ca-certificates \
+ && curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+      | gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" \
+      > /etc/apt/sources.list.d/oneAPI.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends intel-oneapi-mkl-devel intel-oneapi-ipp-devel \
+ && rm -rf /var/lib/apt/lists/*
+
+# Make the libs discoverable without sourcing setvars.sh (jobs run non-interactively).
+# SEQUENTIAL keeps MKL deterministic for CI (avoids the OpenMP threading layer).
+ENV MKLROOT=/opt/intel/oneapi/mkl/latest \
+    IPPROOT=/opt/intel/oneapi/ipp/latest \
+    MKL_THREADING_LAYER=SEQUENTIAL \
+    LD_LIBRARY_PATH=/opt/intel/oneapi/mkl/latest/lib:/opt/intel/oneapi/mkl/latest/lib/intel64:/opt/intel/oneapi/ipp/latest/lib:/opt/intel/oneapi/ipp/latest/lib/intel64
+
+# Build-time smoke: link + run MKL (cblas_ddot) and IPP (ippsDotProd_64f).
+# Fails the image build if either won't link or compute. Mirrors the anvil test.
+RUN <<'EOF'
+set -eux
+mkdir -p /tmp/smoke/src && cd /tmp/smoke
+cat > Cargo.toml <<'TOML'
+[package]
+name = "smoke"
+version = "0.0.0"
+edition = "2021"
+TOML
+cat > build.rs <<'RS'
+use std::env;
+use std::path::Path;
+fn main() {
+    for root in ["MKLROOT", "IPPROOT"] {
+        let base = env::var(root).unwrap();
+        for sub in ["lib", "lib/intel64"] {
+            let p = Path::new(&base).join(sub);
+            if p.exists() {
+                println!("cargo:rustc-link-search=native={}", p.display());
+            }
+        }
+    }
+    for lib in ["mkl_rt", "ipps", "ippvm", "ippcore"] {
+        println!("cargo:rustc-link-lib=dylib={lib}");
+    }
+}
+RS
+cat > src/main.rs <<'RS'
+use std::os::raw::c_int;
+extern "C" {
+    fn cblas_ddot(n: c_int, x: *const f64, incx: c_int, y: *const f64, incy: c_int) -> f64;
+    fn ippsDotProd_64f(p1: *const f64, p2: *const f64, len: c_int, sum: *mut f64) -> c_int;
+}
+fn main() {
+    let a = [1.0f64, 2.0, 3.0];
+    let b = [4.0f64, 5.0, 6.0];
+    let m = unsafe { cblas_ddot(3, a.as_ptr(), 1, b.as_ptr(), 1) };
+    assert!((m - 32.0).abs() < 1e-9, "MKL wrong: {m}");
+    let mut i = 0.0f64;
+    let st = unsafe { ippsDotProd_64f(a.as_ptr(), b.as_ptr(), 3, &mut i) };
+    assert_eq!(st, 0, "IPP status {st}");
+    assert!((i - 32.0).abs() < 1e-9, "IPP wrong: {i}");
+    println!("omnidsp-ci MKL+IPP FFI OK (mkl={m} ipp={i})");
+}
+RS
+cargo run --quiet
+cd / && rm -rf /tmp/smoke
+EOF
+
+CMD ["bash"]
