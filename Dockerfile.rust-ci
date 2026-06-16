@@ -1,0 +1,34 @@
+# Shared Rust CI base image for TwoWells self-hosted runners (homeserver-pool),
+# portable to GitHub-hosted runners via `container:`.
+#
+# Ubuntu 24.04 matches the ARC pool's base, which keeps glibc compatible with the
+# Node that the Actions runner injects into `container:` jobs.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        pkg-config \
+        cmake \
+        libssl-dev \
+        git \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# System-wide rustup/cargo so the job (root or otherwise) can always reach them.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+# rustup + default stable, plus the 1.95 pin our projects use so pinned jobs
+# don't re-download a toolchain on every ephemeral run. Add new pinned versions
+# here as projects adopt them. `a+w` lets non-root job users write the caches.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --no-modify-path --profile minimal \
+          --default-toolchain stable -c rustfmt -c clippy \
+    && rustup toolchain install 1.95 --profile minimal -c rustfmt -c clippy \
+    && chmod -R a+w "$RUSTUP_HOME" "$CARGO_HOME" \
+    && rustc --version && cargo --version
+
+CMD ["bash"]
