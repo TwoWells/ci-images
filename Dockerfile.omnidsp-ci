@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gnupg ca-certif
  && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" \
       > /etc/apt/sources.list.d/oneAPI.list \
  && apt-get update \
- && apt-get install -y --no-install-recommends intel-oneapi-mkl-devel intel-oneapi-ipp-devel \
+ && apt-get install -y --no-install-recommends intel-oneapi-mkl-core-devel intel-oneapi-ipp-devel \
  && rm -rf /var/lib/apt/lists/*
 
 # Make the libs discoverable without sourcing setvars.sh (jobs run non-interactively).
