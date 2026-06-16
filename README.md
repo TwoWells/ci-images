@@ -9,7 +9,7 @@ job via `container:` rather than being baked into the runner.
 | Image                                     | Contents                                                                                                       | For                                  |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
 | `ghcr.io/twowells/rust-ci`                | Ubuntu 24.04 + build-essential, pkg-config, cmake, libssl-dev, git, **curl**, **jq**, rustup (stable + 1.95, rustfmt/clippy) | Rust projects (Lattice, Catenary, …) |
-| `ghcr.io/twowells/omnidsp-ci` _(planned)_ | `rust-ci` + Intel oneMKL + IPP (dynamic)                                                                        | OmniDSP Intel backends               |
+| `ghcr.io/twowells/omnidsp-ci` (Internal) | `rust-ci` + Intel oneMKL (`mkl-core-devel`) + IPP (`ipp-devel`), dynamic                                                                        | OmniDSP Intel backends               |
 
 ## Usage
 
