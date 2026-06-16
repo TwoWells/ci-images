@@ -19,7 +19,7 @@ jobs:
     runs-on: homeserver-pool # ← swap to ubuntu-latest anytime; the image carries the toolchain
     container: ghcr.io/twowells/rust-ci:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: rustc --version && cargo --version
 ```
 
@@ -29,6 +29,11 @@ Cargo tools (`cargo-nextest`, `cargo-deny`, `cargo-machete`, …) stay per-workf
 > **Shell note:** inside a `container:` job, GitHub's **default shell is `sh` (dash), not bash** — no
 > `pipefail`, no `${var:off:len}` substrings. Add `shell: bash` to any step that relies on bash
 > features (bash ships in `rust-ci`). Non-container jobs already default to `bash -eo pipefail`.
+
+> **Action versions:** pin **node24-native** action majors (e.g. `actions/checkout@v6`,
+> `upload-artifact@v7`, `download-artifact@v8`, `docker/*` `@v4`/`@v7`). GitHub deprecated Node 20
+> actions — force-run on Node 24 since 2026-06-16, removed 2026-09-16. `Swatinem/rust-cache@v2` and
+> `rust-lang/crates-io-auth-action@v1` are already node24; `taiki-e/install-action` is composite.
 
 ## Publishing to crates.io — a copy-safe skip-guard
 

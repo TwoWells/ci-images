@@ -19,7 +19,7 @@ jobs:
           - { name: rust-ci, file: Dockerfile.rust-ci }
           - { name: omnidsp-ci, file: Dockerfile.omnidsp-ci }
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Free disk space (large Intel image)
         if: matrix.image.name == 'omnidsp-ci'
         run: |
