@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1
+# rust-web-ci: rust-ci + Node (current LTS) + a pinned prettier.
+#
+# For projects whose `make check` runs `prettier --check .` (e.g. Themis, which
+# has a Starlight docs site + markdown/YAML it formats). PUBLIC visibility, like
+# rust-ci. prettier lives HERE, not in rust-ci, so the Rust-only siblings
+# (Lattice, Catenary) don't pull Node bloat on every job.
+FROM ghcr.io/twowells/rust-ci:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Node = current LTS (NodeSource). prettier = EXACT pin for reproducible CI —
+# the Themis repo aligns its local prettier to this version so local `make lint`
+# and CI agree. prettier is the only Node tool needed; the version echo doubles
+# as a build-time smoke (the image only publishes if both run).
+ARG PRETTIER_VERSION=3.8.4
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g "prettier@${PRETTIER_VERSION}" \
+    && npm cache clean --force \
+    && rm -rf /var/lib/apt/lists/* \
+    && node --version && prettier --version
+
+CMD ["bash"]
